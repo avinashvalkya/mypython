@@ -1,105 +1,74 @@
-import datetime
-import pandas as pd
-import time
+#!/usr/local/bin/python
 
-df=pd.read_csv("C:\\Users\\avina\\Desktop\\Backtesting\\INFY.csv") 
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
+import json
+import pdb
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-# print df['date']
-df['date']=pd.to_datetime(df['date'])
-# print df
-df['date_new'] = df['date'].dt.date
-# df['month'] = df['date'].dt.month
-# df['year'] = df['date'].dt.year
-# df['hour'] = df['date'].dt.hour
-# df['minute'] = df['date'].dt.minute
-df['time'] = df['date'].dt.time
-# print df
+class ZerodhaSelenium( object ):
 
-IB_Date=datetime.date(2019,9,19)
-IB_Start_Time=datetime.time(9,15,0)
-IB_End_Time=datetime.time(9,30,0)
-df_IB=df.query('date_new == @IB_Date & time >= @IB_Start_Time & time<=@IB_End_Time' )
-# print df_IB
+   def __init__( self ):
+      self.timeout = 5
+      self.loadCredentials()
+      self.driver = webdriver.Chrome()
 
+   def getCssElement( self, cssSelector ):
+      '''
+      To make sure we wait till the element appears
+      '''
+      return WebDriverWait( self.driver, self.timeout ).until( EC.presence_of_element_located( ( By.CSS_SELECTOR, cssSelector ) ) )
 
-High=df_IB['high'].max()
-Low=df_IB['low'].min()
+   def loadCredentials( self ):
+      self.username = "FA15897"
+      self.password = "Finvasia@13"
+      self.security = "123456"
+      self.fieldanswer1="1"
+      self.fieldanswer2="1"
 
-# print High
-# print Low
+   def doLogin( self ):
+      #let's login
+      self.driver.get( "https://trade.finvasia.com/")
+      try:
+         passwordField = self.getCssElement( "input[placeholder=Password]" )
+         print(passwordField)
+         passwordField.send_keys( self.password )
+         userNameField = self.getCssElement( "input[placeholder='Client Code']" )
+         print(userNameField)
+         userNameField.send_keys( self.username )
+         loginButton = self.getCssElement( "button[class='login_btn pull-left']" )
+         loginButton.click()
 
-Trade_Start_Time=datetime.time(9,31,0)
-Trade_End_Time=datetime.time(15,15,0)
+         # 2FA
+         # form2FA = self.getCssElement( "form.form-control" )
+         # fieldQuestion1 = form2FA.find_element_by_css_selector( "div:nth-child(2) > div > label.accordin_txtin")
+         # fieldQuestion2 = form2FA.find_element_by_css_selector( "div:nth-child(3) > div > label.accordin_txtin")
+         fieldAnswer1 = self.getCssElement( "input[class='form-control accordin_txtin']" )
+         # print("This is an \"escape\" of a double-quote")
+         # fieldAnswer2 = self.getCssElement('div.form-control accordin_txtin:nth-of-type(2)');
+         
+         fieldAnswer1.send_keys( self.fieldanswer1 )
+         fieldAnswer1.send_keys(Keys.TAB,self.fieldanswer2,Keys.TAB,Keys.ENTER)
+		 
+         # stock1 = self.find_element_by_css_selector( "/html/body/div/div[1]/div/div/div/div[1]/div[2]/div/table/tbody/tr[4]" ).click()
+         # stock1=self.driver.find_element_by_xpath("/html/body/div/div[1]/div/div/div/div[3]/div/div[2]/ul/li[2]/a").click()
 
-df_Trade=df.query('date_new == @IB_Date & time >= @Trade_Start_Time & time<=@Trade_End_Time' )
-# print df_Trade
+         # buttonSubmit.click()
+		 
+         
+         
+      except TimeoutException:
+         print( "Timeout occurred" )
 
-Long_Entry_Candle=0
-Short_Entry_Candle=0
-Long_SL_Candle=0
-Short_SL_Candle=0	
-Exit_Time=datetime.time(15,15,0)
+      pdb.set_trace()
+      # close chrome
+      self.driver.quit()
 
-for i in df_Trade.index:
-	v_High=df.loc[i,'high']
-	v_Low=df.loc[i,'low']
-	while v_High>High and Long_Entry_Candle==0:
-		# print df.loc[i,'time']
-		Long_Entry_Candle=i
-	while v_Low<Low and Short_Entry_Candle==0:
-		# print df.loc[i,'time']
-		Short_Entry_Candle=i
-
-Long_Entry_Time=df.loc[Long_Entry_Candle,'time']		
-Short_Entry_Time=df.loc[Short_Entry_Candle,'time']	
-
-# print Long_Entry_Time
-# print Short_Entry_Time
-
-df_Long=df.query('date_new == @IB_Date & time > @Long_Entry_Time & time<@Exit_Time' )	
-
-for i in df_Long.index:
-	v_Low_Long=df.loc[i,'low']
-	while v_Low_Long<Low and Long_SL_Candle==0:
-		# print df.loc[i,'time']
-		Long_SL_Candle=i
-		
-Long_SL_Time=df.loc[Long_SL_Candle,'time']	
-
-df_Short=df.query('date_new == @IB_Date & time > @Short_Entry_Time & time<@Exit_Time' )	
-
-for i in df_Short.index:
-	v_High_Short=df.loc[i,'high']
-	while v_High_Short>High and Short_SL_Candle==0:
-		# print df.loc[i,'time']
-		Short_SL_Candle=i
-
-		
-Short_SL_Time=df.loc[Short_SL_Candle,'time']	
-
-df_Exit=df.query('date_new == @IB_Date & time==@Exit_Time' )
-
-# print df_Exit	
-
-# print df_Exit['close'].values[0]
-
-Long_Entry_Price=High
-Long_SL_Price=Low
-Long_Exit_Price=df_Exit['close'].values[0]
-Short_Entry_Price=Low
-Short_SL_Price=High
-Short_Exit_Price=df_Exit['close'].values[0]
-
-print "Long Entry: "+str(Long_Entry_Time)+" Long SL:"+str(Long_SL_Time)
-print "Short Entry: "+str(Short_Entry_Time)+" Short SL:"+str(Short_SL_Time)
-
-if Long_SL_Time>Long_Entry_Time:
-	Long_Exit_Price=Long_SL_Price
-if Short_SL_Time>Short_Entry_Time:
-	Short_Exit_Price=Short_SL_Price
-	
-print "Side,Buy,Sell,SL"
-if Long_Entry_Time!=datetime.time(9,15,0):
-	print "Long"+","+str(Long_Entry_Price)+","+str(Long_Exit_Price)+","+str(Long_SL_Price)
-if Short_Entry_Time!=datetime.time(9,15,0):
-	print "Short"+","+str(Short_Exit_Price)+","+str(Short_Entry_Price)+","+str(Short_SL_Price)
+if __name__ == "__main__":
+   obj = ZerodhaSelenium()
+   obj.doLogin()
